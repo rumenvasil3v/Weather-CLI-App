@@ -1,58 +1,35 @@
-# TODO-Rest-API
+# Weather-CLI-App
 
-A small JSON API for a to-do list, written with Javalin and SQLite. Todos can be listed, filtered and read, and each one can have comments.
+Ask for a city, get its weather in your terminal, and choose the units yourself, one property at a time.
 
-Java 21, Maven. Port 8000. The project itself is in `yatl/yatl`.
-
-## Before you start it
-
-`Main.java` points at the database with an absolute Windows path from my own machine. Change `databasePath` to wherever `src/main/resources/database.db` sits on your computer, then run `com.yatl.Main` from your IDE. On start it applies the Flyway migration for the comments table and begins listening.
-
-The database that ships in the repo already has four todos in it. There's no endpoint to create, edit or delete a todo yet; `Seeder` is what resets the table to the four sample rows.
-
-## Endpoints
-
-### GET /todos
-
-All todos. Add `?status=active` or `?status=completed` to filter.
+Here's roughly what a session asks you:
 
 ```
-curl "localhost:8000/todos?status=completed"
+Enter city name: Sofia
+Enter for how many days to display weather ahead (1 - 14): 3
+Making http get request...
+
+Choose unit for property -> Temperature
+You can choose between 'Fahrenheit' or 'Celsius': Celsius
+
+Choose unit for property -> Wind Speed
+You can choose between 'Miles Per Hour' or 'Kilometers Per Hour': Kilometers Per Hour
 ```
 
-### GET /todos/{id}
+The same question comes up for gusts, wind chill, "feels like" and visibility, and then the report is printed: today's conditions with the units you picked, followed by the extra forecast days.
 
-One todo, or a 404 with "Todo item not found".
+## Things that trip people up
 
-### GET /todos/{id}/comments
+The city name has to be one of the shortcuts the app knows, spelled and capitalised exactly: `NY`, `Guildford`, `BrightonUk`, `BrightonUs`, `Paris`, `Sofia` or `Sydney`. Anything else throws "City not found". Adding a city means adding a line to `mapCitiesToISO()` in `WeatherService`.
 
-The comments on a todo, as a JSON object of comment id to comment text.
+Unit answers are case-sensitive too. If you type something it doesn't recognise, that property just isn't shown.
 
-### POST /todos/{id}/comments
+The data comes from the forecast endpoint of [WeatherAPI.com](https://www.weatherapi.com). The key is a constant at the top of `WeatherService.java`, so you'll want your own (they have a free tier) rather than relying on the one in the code. I'd also move it out into an environment variable before the next commit.
 
-Adds a comment. The text goes in as a form field called `content`, not as JSON.
+## Building
 
-```
-curl -X POST -d "content=Remember to do this first" localhost:8000/todos/1/comments
-```
+Maven project on Gson 2.8.8 and OkHttp 4.12.0. Import it as a Maven project and run `cli.Main`. The code is split into `cli` (the prompts), `service` (the HTTP call and JSON parsing), `model` (the weather data and unit conversions) and `utils` (the unit chooser).
 
-Returns 201 with the new comment's id. You get a 404 if the todo doesn't exist and a 400 if `content` is missing.
+One known wrinkle: the shortcut-to-full-name map (`NY` to "New York, US") gets built but the request currently sends the shortcut itself, so the place WeatherAPI picks for short names like `NY` is up to its own matching.
 
-### DELETE /comments/{id}
-
-Removes one comment. 200 on success, 404 if there's no such comment.
-
-## Under the hood
-
-- Javalin 7 for routing, Jackson for JSON, `sqlite-jdbc` for storage, Flyway for the migration
-- `TodoDao` does the SQL, `TodoController` handles requests and status codes, and `AppConfig` wires the routes
-- Comments are deleted automatically when their todo goes (`ON DELETE CASCADE`)
-
-## Tests
-
-There are 19 tests across the model, DAO, controller and an integration suite, using JUnit 5, Mockito and REST Assured.
-
-```
-cd yatl/yatl
-mvn test
-```
+MIT licensed.
